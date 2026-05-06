@@ -31,40 +31,22 @@
 Это как кнопка "Старт" на машине. Когда ты нажимаешь ее, машина заводится.
 
 ```python
-import sys
-import os
 import asyncio
+
+from app.loader import start
 ```
-**Что это:** Мы подключаем три набора инструментов (библиотеки).
-- `sys` — позволяет работать с системными путями
-- `os` — позволяет работать с операционной системой (папками, файлами)
+**Разбор импортов:**
 - `asyncio` — позволяет программе делать несколько дел одновременно (это как если бы у тебя было 10 рук)
-
-```python
-os.chdir('F:/telegram-bot')
-```
-**Что это:** "Перейди в папку F:/telegram-bot". Как будто ты открываешь эту папку в Проводнике. Это нужно потому что Python должен знать, откуда запускаться.
-
-```python
-sys.path.insert(0, 'F:/telegram-bot')
-```
-**Что это:** "Добавь папку F:/telegram-bot в список мест, где Python ищет файлы". Представь, что Python — человек с завязанными глазами. Мы говорим ему: "Если будешь искать что-то, сначала посмотри здесь".
-
-**Почему это важно:** Все файлы проекта лежат внутри папки `app/`. Чтобы Python мог найти их по имени `app.something`, нужно сказать ему, где искать папку `app`.
-
-```python
-from app.loader import Loader
-```
-**Что это:** "Возьми из папки `app` файл `loader.py` и используй оттуда штуку под названием `Loader`". Это как достать конкретный инструмент из ящика.
+- `from app.loader import start` — берем из папки `app` файл `loader.py` функцию `start`. Это как достать конкретный инструмент из ящика.
 
 ```python
 async def main():
-    await Loader.start()
+    await start()
 ```
 **Что это:**
 - `def` — мы создаем функцию (подпрограмму, блок кода с именем)
 - `async` — эта функция умеет "засыпать" и просыпаться (асинхронность). Когда она ждет ответа от Telegram, она не блокирует всю программу.
-- `await` — "подожди, пока `Loader.start()` закончит работу". Это как стоять у микроволновки и ждать, пока еда нагреется.
+- `await` — "подожди, пока `start()` закончит работу". Это как стоять у микроволновки и ждать, пока еда нагреется.
 
 ```python
 if __name__ == "__main__":
@@ -84,13 +66,12 @@ if __name__ == "__main__":
 Этот файл создает бота, подключает его к Telegram и запускает бесконечный цикл ожидания сообщений.
 
 ```python
-import asyncio
 import logging
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 from aiogram.fsm.storage.memory import MemoryStorage
-import aiohttp
+from aiogram.client.session.aiohttp import AiohttpSession
 ```
 
 **Разбор импортов:**
@@ -100,7 +81,7 @@ import aiohttp
 - `DefaultBotProperties` — настройки по умолчанию для бота.
 - `ParseMode.HTML` — говорит боту: "В моих сообщениях может быть HTML-разметка" (жирный текст, курсив, и т.д.).
 - `MemoryStorage` — хранилище в оперативной памяти. Бот запоминает, в каком "состоянии" находится каждый пользователь.
-- `aiohttp` — библиотека для HTTP-запросов (взаимодействия с веб-серверами).
+- `AiohttpSession` — HTTP-сессия для связи с Telegram.
 
 ```python
 from app.config import config
@@ -119,45 +100,41 @@ logger = logging.getLogger(__name__)
 - `getLogger(__name__)` — создаем логгер с именем текущего файла (`app.loader`). Это как назвать камеру "loader", чтобы знать, откуда запись.
 
 ```python
-class Loader:
-    bot: Bot
-    dp: Dispatcher
-    storage: MemoryStorage
+bot: Bot | None = None
+dp: Dispatcher | None = None
 ```
-**Что это:** Мы объявляем класс `Loader`. **Класс** — это шаблон для создания объектов. Представь это как чертеж машины.
-- `bot: Bot` — в этом классе будет поле `bot`, которое хранит объект типа `Bot`
-- `dp: Dispatcher` — поле для диспетчера
-- `storage: MemoryStorage` — поле для хранилища состояний
-
-**Зачем `classmethod`?** Все методы этого класса помечены `@classmethod`. Это значит, что они работают с самим классом, а не с конкретным экземпляром. Это как инструкции на стене завода, а не в руководстве к конкретной машине.
+**Что это:** Глобальные переменные. Это как ящик, в котором лежит бот и диспетчер. Сначала они пустые (`None`), потом их наполняют.
+- `bot: Bot | None` — переменная, которая может хранить бота или быть пустой
+- `dp: Dispatcher | None` — переменная для диспетчера
 
 ```python
-    @classmethod
-    async def load(cls):
-        session = AiohttpSession()
+async def load():
+    global bot, dp
+
+    session = AiohttpSession()
 ```
-**Что это:** Создаем HTTP-сессию. Сессия — это соединение, которое можно переиспользовать. Это как открыть дверь в Telegram и держать ее открытой, пока общаемся.
+**Что это:** Функция `load` инициализирует бота. `global bot, dp` — говорим: "мы будем менять глобальные переменные, а не создавать новые локальные".
+- `AiohttpSession()` — создаем HTTP-сессию. Сессия — это соединение, которое можно переиспользовать. Это как открыть дверь в Telegram и держать ее открытой, пока общаемся.
 
 ```python
-        cls.bot = Bot(
-            token=config.BOT_TOKEN,
-            default=DefaultBotProperties(parse_mode=ParseMode.HTML),
-            session=session
-        )
+    bot = Bot(
+        token=config.BOT_TOKEN,
+        default=DefaultBotProperties(parse_mode=ParseMode.HTML),
+        session=session
+    )
 ```
 **Разбор:**
-- `cls.bot = Bot(...)` — создаем объект бота и сохраняем в поле класса
+- `bot = Bot(...)` — создаем объект бота и кладем в глобальную переменную
 - `token=config.BOT_TOKEN` — берем токен из `.env` файла (через `config`)
 - `default=DefaultBotProperties(parse_mode=ParseMode.HTML)` — говорим: "По умолчанию сообщения — HTML"
 - `session=session` — используем нашу HTTP-сессию
 
 ```python
-        cls.storage = MemoryStorage()
-        cls.dp = Dispatcher(storage=cls.storage)
+    dp = Dispatcher(storage=MemoryStorage())
 ```
 **Что это:**
 - `MemoryStorage()` — создаем хранилище в оперативной памяти. Оно хранит: "Пользователь 12345 сейчас в состоянии ожидания названия манги".
-- `Dispatcher(storage=cls.storage)` — создаем диспетчер и отдаем ему наше хранилище.
+- `Dispatcher(storage=...)` — создаем диспетчер и отдаем ему наше хранилище.
 
 **Простым языком:** Диспетчер — это секретарь, который принимает все звонки (сообщения) и решает, кому передать трубку. Ему нужно знать "состояние" каждого клиента, поэтому мы даем ему блокнот (`storage`).
 
@@ -178,50 +155,43 @@ class Loader:
 - Загружаются три роутера: `commands`, `manga`, `callbacks`
 
 ```python
-    @classmethod
-    async def _load_handlers(cls):
-        from app.handlers import commands, manga, callbacks
-        router = cls.dp.include_router
-        router(commands.router)
-        router(manga.router)
-        router(callbacks.router)
+def _load_handlers():
+    from app.handlers import commands, manga, callbacks
+    dp.include_router(commands.router)
+    dp.include_router(manga.router)
+    dp.include_router(callbacks.router)
 ```
 **Разбор:**
-- `from app.handlers import ...` — импортируем три файла обработчиков
-- `router = cls.dp.include_router` — берем метод "подключить роутер" из диспетчера
-- `router(commands.router)` — говорим диспетчеру: "Вот обработчик для команд (/start, /help)"
-- `router(manga.router)` — "Вот обработчик для поиска манги"
-- `router(callbacks.router)` — "Вот обработчик для кнопок"
+- `from app.handlers import ...` — импортируем три файла с обработчиками команд, манги и callback-ов
+- Почему импорт внутри функции? Чтобы избежать циклических зависимостей (когда файлы импортируют друг друга).
+- `dp.include_router(...)` — подключаем три роутера к диспетчеру.
+- `commands.router` — обработчики команд (/start, /help, /stats)
+- `manga.router` — обработчики поиска манги
+- `callbacks.router` — обработчики нажатий на кнопки
 
 **Аналогия:** Это как секретарю дать три справочника: один для заказов пиццы, другой для суши, третий для жалоб. Когда звонит клиент, секретарь смотрит, что сказал клиент, и открывает нужный справочник.
 
 ```python
-    @classmethod
-    async def start(cls):
-        await cls.load()
-        await cls.bot.delete_webhook(drop_pending_updates=True)
-        await cls.dp.start_polling(cls.bot)
+async def start():
+    await load()
+    logger.info("Starting bot...")
+    await bot.delete_webhook(drop_pending_updates=True)
+    logger.info("Bot started!")
+    await dp.start_polling(bot)
 ```
-**Разбор:**
-- `start()` — главный метод запуска
-- `delete_webhook(drop_pending_updates=True)` — удаляем вебхук (на всякий случай, если бот раньше работал через webhook) и пропускаем старые сообщения, которые накопились, пока бот был выключен
-- `start_polling(cls.bot)` — запускаем бесконечный опрос Telegram API. Бот постоянно спрашивает: "Есть ли новые сообщения?"
+**Разбор пошагово:**
+1. `await load()` — сначала инициализируем все (база, обработчики)
+2. `delete_webhook(drop_pending_updates=True)` — удаляем webhook и сбрасываем старые сообщения. Если бот был перезапущен, он не обработает сообщения, которые накопились, пока был выключен.
+3. `dp.start_polling(bot)` — запускаем бесконечный цикл "опроса" Telegram.
 
 **Простыми словами:** Бот садится на стул и начинает постоянно спрашивать Telegram: "Ну что, есть сообщения? ... А сейчас? ... А сейчас?" Это и есть polling.
 
 ```python
-    @classmethod
-    async def close(cls):
-        await cls.bot.session.close()
+async def close():
+    await bot.session.close()
+    logger.info("Bot closed")
 ```
-**Что это:** При завершении работы закрываем HTTP-сессию (закрываем дверь в Telegram).
-
-```python
-async def main():
-    loader = Loader()
-    await loader.start()
-```
-**Что это:** Создаем объект `Loader` (по чертежу делаем машину) и запускаем ее.
+**Что это:** Закрываем сессию бота (соединение с Telegram). Это как повесить трубку после разговора.
 
 ---
 
@@ -259,15 +229,6 @@ class Config:
 **Простым языком:** Это как бланк с полями. Мы говорим: "Вот бланк настроек. Поле `BOT_TOKEN` заполни из переменной окружения или оставь пустым".
 
 ```python
-    POSTGRES_USER: str = os.getenv("POSTGRES_USER", "bot_user")
-    POSTGRES_PASSWORD: str = os.getenv("POSTGRES_PASSWORD", "bot_password")
-    POSTGRES_DB: str = os.getenv("POSTGRES_DB", "telegram_bot")
-    POSTGRES_HOST: str = os.getenv("POSTGRES_HOST", "localhost")
-    POSTGRES_PORT: int = int(os.getenv("POSTGRES_PORT", "5432"))
-```
-**Что это:** Настройки PostgreSQL. Все имеют значения по умолчанию на случай, если `.env` не заполнен.
-
-```python
     PROXY_URL: str = os.getenv("PROXY_URL", "")
 ```
 **Что это:** Если нужен прокси-сервер для подключения к Telegram. Сейчас не используется (пустая строка).
@@ -286,14 +247,6 @@ class Config:
 - `MAX_IMAGE_DIMENSION=2000` — максимальный размер стороны картинки в пикселях.
 
 ```python
-    USE_SQLITE: bool = os.getenv("USE_SQLITE", "true").lower() == "true"
-```
-**Разбор:**
-- Читаем `USE_SQLITE` из `.env`
-- `.lower()` — переводим в нижний регистр ("True" или "TRUE" тоже сработают)
-- `== "true"` — получаем `True` или `False`
-
-```python
 config = Config()
 ```
 **Что это:** Создаем ОДИН объект настроек. Этот объект (`config`) импортируется во все файлы проекта. Это паттерн **Singleton** (Одиночка) — гарантия, что настройки созданы один раз и везде используются одинаковые.
@@ -307,13 +260,12 @@ config = Config()
 **Что такое база данных?** Это как Excel-таблица, которая живет в файле. Мы можем записывать туда данные, читать их, изменять и удалять.
 
 ```python
-import asyncio
+from contextlib import asynccontextmanager
 from datetime import datetime
-from typing import AsyncGenerator
 ```
 **Разбор:**
+- `contextlib.asynccontextmanager` — декоратор, который превращает функцию в асинхронный контекстный менеджер (`async with`).
 - `datetime` — работа с датами и временем (чтобы записывать "когда пользователь зарегистрировался")
-- `AsyncGenerator` — специальный тип для функций, которые по кусочкам отдают значения (в нашем случае — сессии БД)
 
 ```python
 from sqlalchemy import String, Integer, ForeignKey, DateTime, BigInteger, Text
@@ -338,24 +290,16 @@ class Base(DeclarativeBase):
 **Что это:** Создаем базовый класс для всех наших таблиц. Все модели будут наследоваться от него. Это как общая бумага для всех анкет.
 
 ```python
-def get_database_url() -> str:
-    if config.USE_SQLITE:
-        return "sqlite+aiosqlite:///telegram_bot.db"
-    return f"postgresql+asyncpg://..."
+DATABASE_URL = "sqlite+aiosqlite:///telegram_bot.db"
+
+async_engine = create_async_engine(DATABASE_URL, echo=False)
 ```
 **Разбор:**
-- `-> str` — подсказка типа: функция возвращает строку
-- `sqlite+aiosqlite:///telegram_bot.db` — строка подключения к SQLite. `///` значит "файл в текущей папке".
-- `postgresql+asyncpg://...` — строка подключения к PostgreSQL
-
-**Аналогия:** Это как выбор между двумя картотеками: простой папочной системой (SQLite) или мощной библиотечной системой (PostgreSQL).
-
-```python
-async_engine = create_async_engine(get_database_url(), echo=False)
-```
-**Что это:**
+- `DATABASE_URL` — строка подключения к SQLite. Файл `telegram_bot.db` создается в текущей папке.
 - `create_async_engine` — создаем "движок" БД (точка входа для всех операций)
 - `echo=False` — не показывать SQL-запросы в консоли
+
+**Почему SQLite?** Для бота-читалки нагрузка минимальная (пользователи, статистика, callback-кеш). SQLite — это файл, не требует отдельного сервера. Просто, быстро, не нужен Docker с PostgreSQL.
 
 ```python
 async_session_factory = async_sessionmaker(async_engine, class_=AsyncSession, expire_on_commit=False)
@@ -484,24 +428,25 @@ class DownloadedChapter(Base):
 ### Функция `get_db()`
 
 ```python
-async def get_db() -> AsyncGenerator[AsyncSession, None]:
+@asynccontextmanager
+async def get_db():
     async with async_session_factory() as session:
         yield session
 ```
 
 **Разбор:**
-- `AsyncGenerator` — функция-генератор, которая отдает значения асинхронно
-- `async with` — контекстный менеджер. Открывает сессию, а при выходе автоматически закрывает.
-- `yield session` — отдает сессию тому, кто вызвал функцию
+- `@asynccontextmanager` — декоратор. Теперь `get_db()` можно использовать как `async with get_db() as db:`.
+- `yield session` — отдает сессию внутрь `async with` блока
+- При выходе из `async with` сессия автоматически закрывается (даже если была ошибка!)
 
 **Как используется:**
 ```python
-async for db in get_db():
+async with get_db() as db:
     # тут работаем с db
-    break
+    # при выходе из блока сессия закроется сама
 ```
 
-**Почему `break`?** Потому что `get_db()` — генератор. `async for` берет одно значение (сессию), использует ее, и `break` останавливает цикл. При выходе из `async with` сессия автоматически закрывается.
+**Почему так лучше?** Раньше было `async for db in get_db(): ... break` — это был генератор, и приходилось вручную писать `break`. `async with` — естественный способ Python работать с ресурсами, которые нужно закрывать.
 
 ---
 
@@ -640,26 +585,28 @@ async def cmd_help(message: Message):
 ### Обработчик /stats
 
 ```python
+from sqlalchemy import select
+from app.models.database import User, UserStats, get_db
+```
+**Что это:** Импорты SQLAlchemy и моделей БД — теперь наверху файла, как и положено.
+
+```python
 @router.message(Command("stats"))
 async def cmd_stats(message: Message):
-    from sqlalchemy import select
-    from app.models.database import User, UserStats, get_db
-    
     tg_id = message.from_user.id
 ```
 
 **Разбор:**
-- Импорты внутри функции (не сверху файла). Это допустимо и иногда используется, чтобы избежать циклических импортов.
 - `message.from_user.id` — Telegram ID пользователя, который отправил сообщение
 
 ```python
-    async for db in get_db():
+    async with get_db() as db:
         result = await db.execute(select(User).where(User.tg_id == tg_id))
         user = result.scalar_one_or_none()
 ```
 
 **Разбор:**
-- `async for db in get_db()` — получаем сессию БД
+- `async with get_db() as db` — получаем сессию БД (и автоматически закроем при выходе)
 - `select(User)` — SQL-запрос: "Выбери все колонки из таблицы users"
 - `.where(User.tg_id == tg_id)` — условие: "где tg_id равен ID пользователя"
 - `await db.execute(...)` — выполнить запрос
@@ -688,11 +635,9 @@ async def cmd_stats(message: Message):
             f"📊 <b>Ваша статистика:</b>\n\n"
             f"📚 <b>Манга:</b> {stats.manga_chapters_count} глав"
         )
-        break
 ```
 **Что это:**
 - `f"..."` — f-string, форматированная строка. Внутри `{stats.manga_chapters_count}` подставляется значение.
-- `break` — выходим из цикла `async for`. Сессия автоматически закроется.
 
 ---
 
@@ -705,6 +650,7 @@ import logging
 from aiogram import Router, F
 from aiogram.types import Message, CallbackQuery
 from aiogram.fsm.context import FSMContext
+from bs4 import BeautifulSoup
 
 from app.handlers.commands import UserStates
 from app.models.database import get_db
@@ -715,6 +661,7 @@ from app.services.manga_service import MangaService
 **Разбор новых импортов:**
 - `F` — фильтр-объект из aiogram. `F.text == "🔍 Поиск манги"` означает "триггерись только если текст сообщения равен этому".
 - `CallbackQuery` — объект нажатия на inline-кнопку
+- `BeautifulSoup` — библиотека для очистки HTML из текста описания манги
 - `UserStates` — наши состояния из `commands.py`
 - `MangaService` — сервис для работы с мангой (поиск, скачивание)
 
@@ -764,7 +711,7 @@ async def manga_search_handler(message: Message, state: FSMContext):
 **Что это:** Сбрасываем состояние. Пользователь больше не "в процессе поиска". Это важно, потому что следующее его сообщение не должно восприниматься как название манги.
 
 ```python
-    async for db in get_db():
+    async with get_db() as db:
         service = MangaService(db)
 ```
 **Что это:**
@@ -814,7 +761,7 @@ async def manga_search_handler(message: Message, state: FSMContext):
 ```python
             await message.answer(
                 f"🔍 Результаты поиска по '{query}':",
-                reply_markup=get_search_keyboard(results_data, "manga")
+                reply_markup=get_search_keyboard(results_data)
             )
 ```
 **Что это:** Отправляем сообщение с результатами и inline-кнопками. Каждая кнопка — название манги.
@@ -825,7 +772,6 @@ async def manga_search_handler(message: Message, state: FSMContext):
             await message.answer("Произошла ошибка при поиске. Попробуйте позже.")
         finally:
             await service.close()
-        break
 ```
 
 **Разбор:**
@@ -834,7 +780,6 @@ async def manga_search_handler(message: Message, state: FSMContext):
 - `await message.answer("Произошла ошибка...")` — говорим пользователю, что что-то пошло не так
 - `finally:` — этот блок ВСЕГДА выполняется, даже если была ошибка
 - `await service.close()` — закрываем HTTP-сессию парсера (чтобы не оставлять открытые соединения)
-- `break` — выходим из `async for db in get_db()`
 
 ---
 
@@ -871,7 +816,7 @@ async def manga_card_callback(callback: CallbackQuery, state: FSMContext):
 **Что это:** Если по какой-то причине ID не нашелся (например, state протух) — скажем об этом и выйдем.
 
 ```python
-    async for db in get_db():
+    async with get_db() as db:
         service = MangaService(db)
         try:
             manga = await service.get_title_details(manga_id)
@@ -882,7 +827,6 @@ async def manga_card_callback(callback: CallbackQuery, state: FSMContext):
             cover_text = f"📖 <b>{manga.title}</b>\n\n"
             
             if manga.description:
-                from bs4 import BeautifulSoup
                 desc = BeautifulSoup(manga.description, "html.parser").get_text()
                 desc = desc[:300] + "..." if len(desc) > 300 else desc
                 cover_text += f"<i>{desc}</i>\n\n"
@@ -945,7 +889,7 @@ async def manga_chapters_callback(callback: CallbackQuery, state: FSMContext):
 - `split(":")[1]` → "naruto"
 
 ```python
-    async for db in get_db():
+    async with get_db() as db:
         service = MangaService(db)
         try:
             chapters = await service.get_chapters(manga_id)
@@ -987,7 +931,7 @@ async def manga_chapters_callback(callback: CallbackQuery, state: FSMContext):
             )
         finally:
             await service.close()
-        break
+
     await callback.answer()
 ```
 **Разбор:**
@@ -1037,7 +981,7 @@ async def manga_chapters_page_callback(callback: CallbackQuery, state: FSMContex
 async def manga_volumes_callback(callback: CallbackQuery, state: FSMContext):
     manga_id = callback.data.split(":")[1]
     
-    async for db in get_db():
+    async with get_db() as db:
         service = MangaService(db)
         try:
             chapters = await service.get_chapters(manga_id)
@@ -1094,7 +1038,7 @@ async def manga_volume_chapters_callback(callback: CallbackQuery, state: FSMCont
 **Разбор:** Callback вида `vol:abc123def456`. `short_id` — это MD5-hash, который мы создали через `CallbackManager`.
 
 ```python
-    async for db in get_db():
+    async with get_db() as db:
         data = await CallbackManager.get_callback_data(db, short_id, callback.from_user.id)
         if not data:
             await callback.answer("Данные не найдены")
@@ -1133,7 +1077,7 @@ async def manga_chapter_download_callback(callback: CallbackQuery, state: FSMCon
 ```
 
 ```python
-    async for db in get_db():
+    async with get_db() as db:
         data = await CallbackManager.get_callback_data(db, short_id, callback.from_user.id)
         manga_id = data.get("manga_id")
         chapter_id = data.get("chapter_id")
@@ -1226,12 +1170,11 @@ async def manga_chapter_download_callback(callback: CallbackQuery, state: FSMCon
 **Что это:** Удаляем сообщение с прогрессом. Если не получилось удалить (например, сообщение уже старое) — игнорируем ошибку (`pass`).
 
 ```python
-                import os
                 file_size = os.path.getsize(filepath)
                 file_size_mb = file_size / (1024 * 1024)
 ```
 **Разбор:**
-- `os.path.getsize()` — узнать размер файла в байтах
+- `os.path.getsize()` — узнать размер файла в байтах (`os` импортирован наверху файла)
 - Делим на `1024 * 1024` = 1 048 576, чтобы получить мегабайты
 
 ```python
@@ -1622,35 +1565,24 @@ class MangaService:
 ```python
     async def download_all_chapters(self, manga_id: str, manga_title: str, user_tg_id: int) -> list[str]:
         chapters = await self.get_chapters(manga_id)
-        downloaded_paths = []
-        
         semaphore = asyncio.Semaphore(3)
+
+        async def download_with_limit(chapter: ChapterInfo):
+            async with semaphore:
+                try:
+                    return await self._download_chapter(chapter.id, manga_title, chapter.number)
+                except Exception as e:
+                    logger.error(f"Failed to download chapter {chapter.id}: {e}")
+                    return None
+
+        tasks = [download_with_limit(ch) for ch in chapters]
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+        return [r for r in results if isinstance(r, str)]
 ```
 
 **Разбор:**
 - `asyncio.Semaphore(3)` — семафор. Это как охранник у двери, который пропускает максимум 3 человека одновременно.
 - Мы не хотим скачивать 1000 глав параллельно — забьем канал и нас забанит Remanga.
-
-```python
-        async def download_with_limit(chapter: ChapterInfo):
-            async with semaphore:
-                try:
-                    path = await self._download_chapter(chapter.id, manga_title, chapter.number)
-                    downloaded_paths.append(path)
-                except Exception as e:
-                    logger.error(f"Failed to download chapter {chapter.id}: {e}")
-```
-
-**Разбор:**
-- `async with semaphore:` — "Возьми разрешение у семафора". Если уже 3 загрузки идут — жди.
-- Внутри — скачиваем одну главу
-
-```python
-        tasks = [download_with_limit(ch) for ch in chapters]
-        await asyncio.gather(*tasks, return_exceptions=True)
-```
-
-**Разбор:**
 - Создаем список задач (по одной на каждую главу)
 - `asyncio.gather(..., return_exceptions=True)` — запускаем все задачи параллельно. Если какая-то упадет с ошибкой — не падаем, а продолжаем остальные.
 
@@ -1667,10 +1599,10 @@ class MangaService:
 class MangaTitleInfo:
     id: str
     title: str
-    cover_url: Optional[str]
-    description: Optional[str]
-    year: Optional[int]
-    status: Optional[str]
+    cover_url: str | None
+    description: str | None
+    year: int | None
+    status: str | None
     chapters_count: int
 ```
 
@@ -1682,7 +1614,7 @@ class MangaTitleInfo:
 
 **Аналогия:** Как будто ты написал бланк анкеты. `@dataclass` автоматически сделает из него полноценную форму с полями.
 
-`Optional[str]` означает "строка или None" (поле может быть пустым).
+`str | None` означает "строка или None" (поле может быть пустым). Это синтаксис Python 3.11+, он короче чем `Optional[str]`.
 
 ### Инициализация парсера
 
@@ -1783,7 +1715,7 @@ class RemangaParser:
 ### Получение глав
 
 ```python
-    async def get_chapters(self, manga_id: str, volume: Optional[int] = None) -> list[ChapterInfo]:
+    async def get_chapters(self, manga_id: str, volume: int | None = None) -> list[ChapterInfo]:
         title = await self.get_title(manga_id)
         if not title:
             return []
@@ -2093,23 +2025,6 @@ class FileHandler:
         return os.path.getsize(filepath)
 ```
 **Что это:** Синхронная функция. Возвращает размер файла в байтах.
-
-### Подготовка к отправке в Telegram
-
-```python
-    async def prepare_for_telegram(self, filepath: str) -> tuple[InputFile, bool]:
-        file_size = self.check_file_size(filepath)
-        
-        if file_size > config.MAX_FILE_SIZE_TG:
-            compressed_path = await self.compress_image(filepath)
-            ...
-            return InputFile(compressed_path), True
-        
-        return InputFile(filepath), False
-```
-**Разбор:**
-- Если файл > 50 МБ — сжимаем
-- Возвращаем кортеж: `(InputFile, был_ли_сжат)`
 
 ### Очистка
 
